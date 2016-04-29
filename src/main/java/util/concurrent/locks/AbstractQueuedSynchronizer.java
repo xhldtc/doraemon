@@ -380,6 +380,9 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * it takes a bit more work for nodes to determine who their successors are,
 	 * in part to deal with possible cancellation due to timeouts and
 	 * interrupts.
+	 * 插入一个CLH队列只需要一个在尾节点的原子操作，所以一个节点从未入队到入队
+	 * 只差一个原子操作。类似地，出队只需要更新首节点。然而，还需要一些额外的工作
+	 * 来决定谁是节点的后置节点，这是为了处理可能出现的因为超时或中断引起的取消动作。
 	 *
 	 * <p>
 	 * The "prev" links (not used in original CLH locks), are mainly needed to
