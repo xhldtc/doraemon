@@ -357,11 +357,11 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * 
 	 * 等待队列是CLH锁队列的一个变体，CLH锁通常用来实现自旋锁，这里我们用来实现
 	 * 阻塞同步器，但使用了相同的策略，就是持有前置节点线程的一些控制信息。每个节点的
-	 * 'status'字段会跟踪一个线程是否要阻塞。一个节点会被唤醒当它的前置节点释放了。
+	 * 'status'字段会跟踪一个线程是否要阻塞。当一个节点的前置节点释放时，这个节点会被唤醒。
 	 * 队列的每个节点也用作一个特殊通知方式的监视器，当它持有单独的一个等待线程时。
 	 * status字段并不控制一个线程能保证赋予锁，或者其他。一个线程会尝试获取锁当它是
 	 * 队列里的第一个节点，但是作为第一个节点并不能保证获取成功，这只是赋予了它一个
-	 * 竞争的权利，所以当前释放锁的线程作为一个竞争者需要重新等待
+	 * 竞争的权利，所以当前释放锁的线程作为一个竞争者也可能需要重新等待（当锁提前被其他线程获取）
 	 *
 	 * <p>
 	 * To enqueue into a CLH lock, you atomically splice it in as new tail. To
@@ -415,6 +415,9 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * them on construction, because it would be wasted effort if there is never
 	 * contention. Instead, the node is constructed and head and tail pointers
 	 * are set upon first contention.
+	 * CLH队列需要一个虚拟的首节点来初始化，但是我们在构造队列时并不会创建这个首节点，因为如果永远
+	 * 不存在竞争的话就没必要创建这个首节点了。而当发生竞争时，这个虚拟节点会被初始化，并且首尾的
+	 * 指针都将指向这个节点。
 	 *
 	 * <p>
 	 * Threads waiting on Conditions use the same nodes, but use an additional
@@ -627,9 +630,11 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 		for (;;) {
 			Node t = tail;
 			if (t == null) { // Must initialize
+				//原子地初始化队首，在多线程竞争enq时保证只有一个空节点成为队首
 				if (compareAndSetHead(new Node()))
 					tail = head;
 			} else {
+				//将节点前驱设为当前队尾，再CAS当前节点为队尾，如果CAS时发现队尾已经发生改变了，则进入下个循环，相当于这句代码无效，下个循环会重新设置
 				node.prev = t;
 				if (compareAndSetTail(t, node)) {
 					t.next = node;
@@ -649,6 +654,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	private Node addWaiter(Node mode) {
 		Node node = new Node(Thread.currentThread(), mode);
 		// Try the fast path of enq; backup to full enq on failure
+		//相当于调用了enq后半部else的逻辑，因为tail大部分情况不为null，所以大部分都进该逻辑，只有tail为null时才调用完整的enq
 		Node pred = tail;
 		if (pred != null) {
 			node.prev = pred;
@@ -893,6 +899,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * @param arg
 	 *            the acquire argument
 	 * @return {@code true} if interrupted while waiting
+	 * 尝试从等待的队列里获取锁,如果节点的前驱为队首，则尝试获取锁，
+	 * 获取成功则把队首出队，当前节点设为队首，如果失败就调用park挂起
 	 */
 	final boolean acquireQueued(final Node node, int arg) {
 		boolean failed = true;
