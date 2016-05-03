@@ -133,12 +133,14 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             final Thread current = Thread.currentThread();
             int c = getState();
             if (c == 0) {
+            		//状态为0代表锁可获取，CAS尝试获取锁
                 if (compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
                 }
             }
             else if (current == getExclusiveOwnerThread()) {
+            		//此分支代表当前线程持有锁，因为锁是可重入的，所以获取成功，并将state加1然后设置进去
                 int nextc = c + acquires;
                 if (nextc < 0) // overflow
                     throw new Error("Maximum lock count exceeded");
@@ -148,6 +150,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             return false;
         }
 
+        //尝试释放锁，将state减1,如果state等于0了，代表这个锁当前线程释放了
         protected final boolean tryRelease(int releases) {
             int c = getState() - releases;
             if (Thread.currentThread() != getExclusiveOwnerThread())
@@ -173,10 +176,12 @@ public class ReentrantLock implements Lock, java.io.Serializable {
 
         // Methods relayed from outer class
 
+        //如果state是0，代表当前没有线程持有该锁
         final Thread getOwner() {
             return getState() == 0 ? null : getExclusiveOwnerThread();
         }
 
+        //当前线程持有重入锁的次数
         final int getHoldCount() {
             return isHeldExclusively() ? getState() : 0;
         }
@@ -204,6 +209,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         /**
          * Performs lock.  Try immediate barge, backing up to normal
          * acquire on failure.
+         * 非公平地获取锁，先抢占式CAS state，如果刚好state是0就可以抢到锁，
+         * 如果没抢到，再正常调用父类AQS的acquire去获取锁
          */
         final void lock() {
             if (compareAndSetState(0, 1))
@@ -223,6 +230,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     static final class FairSync extends Sync {
         private static final long serialVersionUID = -3000897897090466540L;
 
+        //公平获取锁，可以看出和非公平锁的获取的区别，不抢占式地调用CAS去修改state状态获取锁
         final void lock() {
             acquire(1);
         }
@@ -230,6 +238,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         /**
          * Fair version of tryAcquire.  Don't grant access unless
          * recursive call or no waiters or is first.
+         * 大部分和父类的tryAcquire方法代码一样，唯一区别是修改state之前会先检查
+         * 当前线程是不是排到最前面，如果不是直接reture false代表获取失败，保证公平
          */
         protected final boolean tryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
@@ -333,6 +343,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * interrupt over normal or reentrant acquisition of the lock.
      *
      * @throws InterruptedException if the current thread is interrupted
+     * 以响应中断的方式获取锁，如果在获取锁的等待过程中线程被中断，直接抛出异常
      */
     public void lockInterruptibly() throws InterruptedException {
         sync.acquireInterruptibly(1);
@@ -353,6 +364,11 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * the fairness setting for this lock, then use
      * {@link #tryLock(long, TimeUnit) tryLock(0, TimeUnit.SECONDS) }
      * which is almost equivalent (it also detects interruption).
+     * 
+     * 如果锁获取成功方法会直接返回true,即使这个锁机制被设为公平锁，该方法也会直接尝试
+     * 去获取锁，无论当前有没有其他线程在等待这个锁，这种抢占式的行为也许在特定的环境有用，
+     * 即使它破坏了公平性。如果你想保证公平性，可以用tryLock(long, TimeUnit)方法，
+     * tryLock(0, TimeUnit.SECONDS)调用效果基本等同于tryLock（但是前者还会检测中断）
      *
      * <p>If the current thread already holds this lock then the hold
      * count is incremented by one and the method returns {@code true}.
@@ -439,6 +455,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *         the lock could be acquired
      * @throws InterruptedException if the current thread is interrupted
      * @throws NullPointerException if the time unit is null
+     * 可以看AQS的doAcquireNanos实现
      */
     public boolean tryLock(long timeout, TimeUnit unit)
             throws InterruptedException {

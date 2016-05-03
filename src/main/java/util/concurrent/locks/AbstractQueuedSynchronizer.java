@@ -942,6 +942,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 					return;
 				}
 				if (shouldParkAfterFailedAcquire(p, node) && parkAndCheckInterrupt())
+					//和acquireQueued方法唯一的代码区别，如果发现线程被设置了中断状态
+					//直接抛出异常，而acquireQueued仅将中断状态返回给调用者
 					throw new InterruptedException();
 			}
 		} finally {
@@ -958,6 +960,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * @param nanosTimeout
 	 *            max wait time
 	 * @return {@code true} if acquired
+	 * 传入一个时间让获取锁的阻塞操作最多等待固定的时间，如果时间到了还没有获得锁就return false
+	 * 使用了LockSupport的原生park方法支持
 	 */
 	private boolean doAcquireNanos(int arg, long nanosTimeout) throws InterruptedException {
 		if (nanosTimeout <= 0L)
@@ -1246,11 +1250,17 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * thread is queued, possibly repeatedly blocking and unblocking, invoking
 	 * {@link #tryAcquire} until success. This method can be used to implement
 	 * method {@link Lock#lock}.
+	 * 
+	 * 以排他锁的方式获取锁，忽略中断。实现方式是至少调用一次tryAcquire方法，如果成功就直接
+	 * return，否则这个线程就会入等待队列，可能会不断阻塞或被唤醒，调用tryAcquire直到成功。
+	 * 这个方法可以用来实现Lock的lock方法
 	 *
 	 * @param arg
 	 *            the acquire argument. This value is conveyed to
 	 *            {@link #tryAcquire} but is otherwise uninterpreted and can
 	 *            represent anything you like.
+	 *  先调用tryAcquire，如果成功就直接返回，没成功再继承调用后续方法让线程以队列的方式排队
+	 *  等待获取锁     
 	 */
 	public final void acquire(int arg) {
 		if (!tryAcquire(arg) && acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
