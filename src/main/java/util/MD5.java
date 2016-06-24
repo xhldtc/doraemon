@@ -56,36 +56,14 @@ public class MD5 {
 
     int[] getWords(byte[] message) {
         long length = message.length * 8;
-        return appendLength(appendPaddingBits(message), length);
-    }
-
-    byte[] appendPaddingBits(byte[] message) {
-        List<Byte> paddings = new ArrayList<Byte>();
-        paddings.add((byte) 0x80);
-        while ((message.length + paddings.size()) * 8 % 512 != 448) {
-            paddings.add((byte) 0);
-        }
-        byte[] result = new byte[message.length + paddings.size() + 8];
-        System.arraycopy(message, 0, result, 0, message.length);
-        for (int i = message.length; i < message.length + paddings.size(); i++)
-            result[i] = paddings.get(i - message.length);
-        return result;
+        return appendLength(ByteUtils.appendPaddingBits(message), length);
     }
 
     int[] appendLength(byte[] message, long length) {
-        int[] ints = byte2int(message);
+        int[] ints = ByteUtils.byte2int(message,false);
         ints[ints.length - 2] = (int) (length & 0xFFFFFFFF);
         ints[ints.length - 1] = (int) (length >>> 32);
         return ints;
-    }
-
-    int[] byte2int(byte[] bytes) {
-        int[] result = new int[bytes.length / 4];
-        for (int i = 0; i < bytes.length; i += 4) {
-            result[i / 4] = (0xFF & bytes[i + 3]) << 24 | (0xFF & bytes[i + 2]) << 16 | (0xFF & bytes[i + 1]) << 8
-                    | (0xFF & bytes[i]);
-        }
-        return result;
     }
 
     int F(int x, int y, int z) {
@@ -102,10 +80,6 @@ public class MD5 {
 
     int I(int x, int y, int z) {
         return y ^ (x | ~z);
-    }
-
-    int leftrotate(int num, int count) {
-        return (num << count) | (num >>> (32 - count));
     }
 
     String int2byteLittleEndian(int num) {
@@ -135,7 +109,7 @@ public class MD5 {
                 int temp = d;
                 d = c;
                 c = b;
-                b = leftrotate(a + f + k[i] + array[j + g], r[i]) + b;
+                b = ByteUtils.leftrotate(a + f + k[i] + array[j + g], r[i]) + b;
                 a = temp;
             }
             h0 += a;
