@@ -6,6 +6,14 @@ import java.util.List;
 /**
  * @author xhldtc MD5摘要算法实现，参考自 https://zh.wikipedia.org/zh-cn/MD5 和
  *         https://tools.ietf.org/html/rfc1321
+ *         实现的时候有几点需要非常注意！！！ 
+ *         1. 在拼长度之前的byte数组转32位word时需要用小端法，
+ *            即按数组顺序0xAB,0xCD,0xEF,0x12这四个字节拼成的int是 0x12EFCDAB
+ *         2. 拼长度的时候，把64位long转成两个32位int,低字节优先，拼到words数组里，
+ *            注意这时int不用再转成小端顺序，例 0xABABCDCDEFEF1212拆成
+ *            0xEFEF1212,0xABABCDCD拼到后面
+ *         3. 拿到32位words数组后计算按算法实现逻辑，这里没什么坑
+ *         4. 最后需要注意！！得到的结果要转成小端顺序的int再输出
  */
 public class MD5 {
 
