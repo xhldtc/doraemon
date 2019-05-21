@@ -1715,6 +1715,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * Called only when needed by isOnSyncQueue.
 	 * 
 	 * @return true if present
+	 * 
+	 * 在尾部开始通过prev指针搜索节点看是否在queue中
 	 */
 	private boolean findNodeFromTail(Node node) {
 		Node t = tail;
@@ -1786,6 +1788,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 	 * @param node
 	 *            the condition node for this wait
 	 * @return previous sync state
+	 * 
+	 * 保存当前state字段的值，然后release，相当于完全释放锁
 	 */
 	final int fullyRelease(Node node) {
 		boolean failed = true;
@@ -1985,6 +1989,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 		 * rather than stopping at a particular target to unlink all pointers to
 		 * garbage nodes without requiring many re-traversals during
 		 * cancellation storms.
+		 * 
+		 * 把所有的cancel waiter节点删掉，重新构造指针的连接状态
 		 */
 		private void unlinkCancelledWaiters() {
 			Node t = firstWaiter;
