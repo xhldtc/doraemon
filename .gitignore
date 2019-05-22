@@ -1,8 +1,9 @@
 /target/
 .idea/
-.iml
+*.iml
 .project
 .classpath
+test-output/
 ### Java template
 # Compiled class file
 *.class
