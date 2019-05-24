@@ -2,6 +2,7 @@ package blockchain;
 
 import com.google.bitcoin.core.AddressFormatException;
 import com.google.bitcoin.core.Base58;
+import com.google.common.primitives.Bytes;
 import org.bouncycastle.asn1.sec.SECNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -146,17 +147,7 @@ public class EcdsaUtils {
      * @throws NoSuchAlgorithmException
      */
     public static String privateKeyToWalletImportFormat(byte[] privateKey, boolean compressed) throws NoSuchAlgorithmException {
-        byte[] target = new byte[compressed ? privateKey.length + 2 : privateKey.length + 1];
-        target[0] = (byte) 0x80;
-        System.arraycopy(privateKey, 0, target, 1, privateKey.length);
-        if (compressed) {
-            target[target.length - 1] = (byte) 0x01;
-        }
-        MessageDigest sha256 = MessageDigest.getInstance(SHA_256);
-        byte[] checksum = sha256.digest(sha256.digest(target));
-        byte[] result = Arrays.copyOf(target, target.length + 4);
-        System.arraycopy(checksum, 0, result, result.length - 4, 4);
-        return Base58.encode(result);
+        return base58CheckEncode(compressed ? Bytes.concat(privateKey, new byte[]{0x01}) : privateKey, (byte) 0x80);
     }
 
     /**
@@ -174,9 +165,6 @@ public class EcdsaUtils {
 
     public static ECPoint toPublicKey(BigInteger bigInteger) {
         X9ECParameters curve = SECNamedCurves.getByName(EC_SECP256K1);
-//        ECDomainParameters domain = new ECDomainParameters(curve.getCurve(), curve.getG(), curve.getN(), curve.getH());
-//        ECPublicKeyParameters publicParams = new ECPublicKeyParameters(domain.getG().multiply(bigInteger), domain);
-//        return new ECPoint(publicParams.getQ().getX().toBigInteger(), publicParams.getQ().getY().toBigInteger());
         org.bouncycastle.math.ec.ECPoint Q = curve.getG().multiply(bigInteger);
         return new ECPoint(Q.getX().toBigInteger(), Q.getY().toBigInteger());
     }
@@ -187,6 +175,7 @@ public class EcdsaUtils {
         ECPrivateKey ecPrivateKey = (ECPrivateKey) keyPair.getPrivate();
         String privateKey = adjustTo64(ecPrivateKey.getS().toString(16));
         System.out.println("private key: " + privateKey);
+//        privateKey = "3aba4162c7251c891207b747840551a71939b0de081f85c4e44cf7c13e41daa6";
         byte[] privateKeyByte = DatatypeConverter.parseHexBinary(privateKey);
 
         String wif = privateKeyToWalletImportFormat(privateKeyByte, true);
